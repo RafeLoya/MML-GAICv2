@@ -22,8 +22,10 @@ node_modules
 .sass-cach
 
 .idea
-research
+research/
+dataset/
 build/
+git_blob_recovery/
 *.egg-info/
 *.so
 *.o

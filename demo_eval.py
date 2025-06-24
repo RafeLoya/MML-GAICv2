@@ -9,6 +9,9 @@ import torch.utils.data as data
 import argparse
 import time
 
+#NEW
+import json
+
 import torch.multiprocessing
 torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -60,7 +63,8 @@ def test():
 
         net = build_crop_model(scale='multi',#scale='single', 
                                alignsize=9, reddim=8, loadweight=False, model='mobilenetv2',downsample=4)
-        net.load_state_dict(torch.load(args.net_path))
+        #net.load_state_dict(torch.load(args.net_path))
+        net.load_state_dict(torch.load(args.net_path, weights_only=False))
         net.eval()
 
         if args.cuda:
@@ -101,6 +105,38 @@ def test():
             t1 = time.time()
             print('timer: %.4f sec.' % (t1 - t0))
             id_out = sorted(range(len(out)), key=lambda k: out[k], reverse = True)
+
+            #NEW
+            all_crops_info = {
+                'image_path': imgpath,
+                'candidates': []
+            }
+
+            for i, (box, score) in enumerate(zip(bboxes, out)):
+                all_crops_info['candidates'].append({
+                    'original_i': i,
+                    'coordinates': {'y1': int(box[0]), 'x1': int(box[1]),
+                                    'y2': int(box[2]), 'x2': int(box[3])},
+                    'score': float(score)
+                })
+
+            all_crops_info['candidates'].sort(key=lambda x: x['score'], reverse=True)
+           
+            for rank, candidate in enumerate(all_crops_info['candidates']):
+                candidate['rank'] = rank
+
+            imgname = imgpath.split('/')[-1]
+            #json_filename = imgname[:4] + '_crop_info.json'
+            base_name = imgname.rsplit('.', 1)[0]
+            json_filename = '.' + base_name + '.json'
+            #json_filename = '.' + imgname.split(imgname)[0] + '.json'
+            json_path = os.path.join(args.output_dir, json_filename)
+
+            with open(json_path, 'w') as f:
+                json.dump(all_crops_info, f, indent=2)
+                
+            print(f"Saved crop info to: {json_path}")
+            #NEW
 
             for id in range(0,1):
                 top_box = bboxes[id_out[id]]
